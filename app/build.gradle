@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+def runNumber = Integer.parseInt(System.getenv("GITHUB_RUN_NUMBER") ?: "1")
+
+android {
+    namespace 'com.veryyl.studywage'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.veryyl.studywage"
+        minSdk 26
+        targetSdk 34
+        versionCode runNumber
+        versionName "0.1." + runNumber
+    }
+
+    signingConfigs {
+        release {
+            storeFile file("study-wage.keystore")
+            storeType "pkcs12"
+            storePassword "studywage"
+            keyAlias "studywage"
+            keyPassword "studywage"
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

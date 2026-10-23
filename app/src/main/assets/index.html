@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Study Wage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one narrow column styled like a pay stub on ledger paper — the stub (what you can move to your fun card) on top, then clock-in, spending, and this week's payslip. */
+:root {
+  --paper: #EBF1E9;
+  --sheet: #FAFCF8;
+  --ink: #16261E;
+  --muted: #586B5F;
+  --line: #C7D5C9;
+  --earn: #1D7448;
+  --earn-soft: #DAEEE0;
+  --on-earn: #FFFFFF;
+  --spend: #AE2257;
+  --spend-soft: #F7E0E9;
+  --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0D1511; --sheet: #15201A; --ink: #DFEBE3; --muted: #92A799; --line: #2A3A31;
+    --earn: #6CD199; --earn-soft: #1B3426; --on-earn: #0D1511; --spend: #F08AAE; --spend-soft: #3A1D29;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0D1511; --sheet: #15201A; --ink: #DFEBE3; --muted: #92A799; --line: #2A3A31;
+  --earn: #6CD199; --earn-soft: #1B3426; --on-earn: #0D1511; --spend: #F08AAE; --spend-soft: #3A1D29;
+  color-scheme: dark;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+input[type="password"] {
+  font: inherit; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
+}
+.sync { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.sync .state { font-size: 0.85rem; color: var(--muted); }
+.sync .state.err { color: var(--spend); }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.5 var(--font-body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+  margin: 0;
+}
+.wrap { max-width: 520px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+h1, h2 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.12rem; font-weight: 700; letter-spacing: -0.01em; }
+.num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.muted { color: var(--muted); }
+.small { font-size: 0.85rem; }
+p { margin: 0; }
+
+.top { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.status { font-size: 0.78rem; color: var(--muted); }
+.status b { color: var(--earn); font-weight: 600; }
+
+/* The pay stub */
+.stub {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  position: relative;
+  overflow: hidden;
+}
+.stub-main { padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 6px; }
+.big { font-family: var(--font-num); font-weight: 600; font-size: clamp(2.6rem, 13vw, 3.6rem); line-height: 1; letter-spacing: -0.03em; color: var(--earn); }
+.perf { position: relative; height: 0; border-top: 2px dashed var(--line); margin: 0 14px; }
+.perf::before, .perf::after { content: ""; position: absolute; top: -11px; width: 20px; height: 20px; border-radius: 50%; background: var(--paper); border: 1px solid var(--line); }
+.perf::before { left: -25px; } .perf::after { right: -25px; }
+.stub-foot { padding: 14px 18px 16px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stub-foot .v { font-family: var(--font-num); font-weight: 600; font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+.move { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.move .field { flex: 1 1 120px; }
+
+/* Cards */
+.card { background: var(--sheet); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+
+/* Controls */
+input[type="number"], input[type="text"], input[type="date"] {
+  font: inherit; color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; width: 100%; min-width: 0;
+}
+input:focus-visible, button:focus-visible, summary:focus-visible, label.file:focus-within { outline: 2px solid var(--earn); outline-offset: 2px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field > span { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+.prefix { position: relative; }
+.prefix > i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-style: normal; color: var(--muted); font-family: var(--font-num); pointer-events: none; }
+.prefix > input { padding-left: 26px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.row > .field { flex: 1 1 110px; }
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; padding: 10px 14px;
+  border: 1px solid var(--line); background: var(--paper); color: var(--ink);
+}
+button.primary { background: var(--earn); border-color: var(--earn); color: var(--on-earn); }
+button.danger { background: var(--spend); border-color: var(--spend); color: var(--sheet); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+button.link { background: none; border: none; padding: 4px 6px; color: var(--muted); font-weight: 500; }
+
+/* Clock */
+.clock { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.clock-time { font-family: var(--font-num); font-weight: 600; font-size: 2rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+.clock-time.on { color: var(--earn); }
+.clock .live { font-size: 0.8rem; color: var(--muted); }
+.clock button { min-width: 120px; padding-block: 12px; }
+
+details { border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-family: var(--font-num); color: var(--muted); }
+details[open] summary::after { content: "–"; }
+details > .inner { padding-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+label.file { display: inline-flex; align-items: center; gap: 8px; border: 1px dashed var(--line); border-radius: 8px; padding: 12px; cursor: pointer; font-weight: 600; }
+label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.preview { background: var(--earn-soft); border-radius: 8px; padding: 10px 12px; font-size: 0.88rem; }
+.preview.warn { background: var(--spend-soft); }
+
+/* Spend */
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 0; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper); text-align: left; }
+.chip .p { font-family: var(--font-num); font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+.chip .hrs { color: var(--spend); }
+.cost { font-size: 0.88rem; color: var(--spend); min-height: 1.3em; }
+
+/* Payslip */
+.slip { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+.slip td { padding: 7px 0; border-bottom: 1px solid var(--line); }
+.slip td:last-child { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 600; }
+.slip tr:last-child td { border-bottom: none; padding-top: 10px; }
+.slip .neg { color: var(--spend); }
+.slip .pos { color: var(--earn); }
+.slip .total td { border-top: 2px solid var(--ink); }
+
+/* History */
+.hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hist li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto auto; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.hist li:last-child { border-bottom: none; }
+.dot { width: 8px; height: 8px; border-radius: 50%; }
+.dot.s { background: var(--earn); } .dot.t { background: var(--muted); } .dot.x { background: var(--spend); }
+.hist .what { min-width: 0; }
+.hist .what b { font-weight: 500; display: block; overflow-wrap: anywhere; }
+.hist .what span { font-size: 0.78rem; color: var(--muted); }
+.hist .amt { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 600; font-size: 0.92rem; text-align: right; }
+.hist .amt.s { color: var(--earn); } .hist .amt.x { color: var(--spend); }
+.hist .del { padding: 4px 8px; font-size: 0.78rem; }
+.hist .del.armed { color: var(--spend); border-color: var(--spend); }
+.empty { padding: 14px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 0.9rem; }
+
+.qlist { display: flex; flex-direction: column; gap: 6px; }
+.qlist div { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--sheet); padding: 10px 16px; border-radius: 8px; font-size: 0.9rem; max-width: calc(100% - 32px); z-index: 20; }
+@media (prefers-reduced-motion: no-preference) {
+  .toast { transition: opacity .2s; }
+  .big { transition: color .2s; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Study Wage</h1>
+    <span class="status" id="status">Loading…</span>
+  </div>
+
+  <section class="stub" aria-label="Your balance">
+    <div class="stub-main">
+      <span class="label">Ready to move to your fun card</span>
+      <div class="big" id="avail">$0.00</div>
+      <p class="small muted" id="availNote">Study to earn. Every hour pays <span class="num" id="rateInline">$1.00</span>.</p>
+      <div class="move">
+        <label class="field" for="moveAmt"><span>Amount you moved</span>
+          <span class="prefix"><i>$</i><input id="moveAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></span>
+        </label>
+        <button class="primary" id="moveBtn" style="align-self:flex-end">I moved it</button>
+      </div>
+    </div>
+    <div class="perf" aria-hidden="true"></div>
+    <div class="stub-foot">
+      <div><div class="label">Earned</div><div class="v" id="earned">$0.00</div></div>
+      <div><div class="label">Moved</div><div class="v" id="moved">$0.00</div></div>
+      <div><div class="label">On card</div><div class="v" id="oncard">$0.00</div></div>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="clockH">
+    <div class="card-head"><h2 id="clockH">Clock in</h2><span class="small muted">Study time becomes money</span></div>
+    <div class="clock">
+      <div>
+        <div class="clock-time" id="clock">0:00:00</div>
+        <div class="live" id="clockLive">Not studying right now</div>
+      </div>
+      <button class="primary" id="clockBtn">Start</button>
+    </div>
+    <details id="manualBox">
+      <summary>Log hours by hand</summary>
+      <div class="inner">
+        <div class="row">
+          <label class="field" for="manH"><span>Hours</span><input id="manH" type="number" inputmode="decimal" min="0" step="0.25" placeholder="1.5"></label>
+          <label class="field" for="manD"><span>Day</span><input id="manD" type="date"></label>
+        </div>
+        <label class="field" for="manNote"><span>What you studied (optional)</span><input id="manNote" type="text" placeholder="EC1101E tutorial"></label>
+        <button class="primary" id="manBtn">Add hours</button>
+      </div>
+    </details>
+    <details id="togglBox">
+      <summary>Toggl Track sync</summary>
+      <div class="inner">
+        <div id="togglOff">
+          <div class="inner" style="padding-top:0">
+            <p class="small muted">Paste your Toggl API token and finished Toggl entries turn into pay automatically. Find it in Toggl on the web: Profile settings → API Token. It stays on this phone.</p>
+            <label class="field" for="tgToken"><span>Toggl API token</span><input id="tgToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="32-character token"></label>
+          </div>
+        </div>
+        <div id="togglOn" class="sync" hidden>
+          <span class="state" id="tgState">Connected</span>
+          <button id="tgSync">Sync now</button>
+        </div>
+        <label class="field" for="tgFilter"><span>Only count entries whose project, tag or description contains</span><input id="tgFilter" type="text" placeholder="Leave empty to count everything"></label>
+        <label class="field" for="tgFrom"><span>Count Toggl entries from</span><input id="tgFrom" type="date"></label>
+        <button class="primary" id="tgConnect">Connect Toggl</button>
+        <button class="link" id="tgDisconnect" hidden>Disconnect Toggl</button>
+      </div>
+    </details>
+  </section>
+
+  <section class="card" aria-labelledby="spendH">
+    <div class="card-head"><h2 id="spendH">Spend</h2><span class="small muted">Tap what you bought</span></div>
+    <div class="chips" id="chips"></div>
+    <div class="row">
+      <label class="field" for="spItem" style="flex:2 1 150px"><span>Item</span><input id="spItem" type="text" placeholder="Bubble tea"></label>
+      <label class="field" for="spAmt"><span>Price</span><span class="prefix"><i>$</i><input id="spAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="4.50"></span></label>
+    </div>
+    <div class="cost" id="spCost"></div>
+    <button class="danger" id="spBtn">Log spend</button>
+  </section>
+
+  <section class="card" aria-labelledby="weekH">
+    <div class="card-head"><h2 id="weekH">This week's payslip</h2><span class="small muted num" id="weekRange"></span></div>
+    <table class="slip"><tbody id="slip"></tbody></table>
+  </section>
+
+  <section class="card" aria-labelledby="histH">
+    <div class="card-head"><h2 id="histH">History</h2><span class="small muted" id="histCount"></span></div>
+    <ul class="hist" id="hist"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="setH">
+    <h2 id="setH">Settings</h2>
+    <div class="row">
+      <label class="field" for="rate"><span>Pay per hour of study</span><span class="prefix"><i>$</i><input id="rate" type="number" inputmode="decimal" min="0.1" step="0.1"></span></label>
+      <button id="rateBtn">Save rate</button>
+    </div>
+    <p class="small muted">A new rate applies to hours you log from now on. Hours already logged keep what they paid.</p>
+    <details>
+      <summary>Quick-tap items</summary>
+      <div class="inner">
+        <div class="qlist" id="qlist"></div>
+        <div class="row">
+          <label class="field" for="qItem" style="flex:2 1 150px"><span>Item</span><input id="qItem" type="text" placeholder="Kopi"></label>
+          <label class="field" for="qAmt"><span>Price</span><span class="prefix"><i>$</i><input id="qAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1.40"></span></label>
+        </div>
+        <button id="qBtn">Add item</button>
+      </div>
+    </details>
+  </section>
+</div>
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script>
+(function () {
+  "use strict";
+  const LS_KEY = "study-wage-state-v1";
+  const $ = (id) => document.getElementById(id);
+
+  const blank = () => ({
+    v: 1, rate: 1, running: null,
+    sessions: [], transfers: [], spends: [],
+    quick: [{ item: "PGP chicken rice", amt: 3.3 }],
+    toggl: { token: "", filter: "", from: "", last: "" }
+  });
+  let S = blank();
+
+  // ---------- helpers ----------
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const money = (n) => (n < -0.004 ? "−$" : "$") + Math.abs(n).toFixed(2);
+  const hrs = (h) => {
+    if (h < 1) return Math.max(1, Math.round(h * 60)) + " min";
+    const v = Math.round(h * 10) / 10;
+    return v + " h";
+  };
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  const pad = (n) => String(n).padStart(2, "0");
+  const ymd = (d) => d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  const fromYmd = (s) => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d, 12, 0, 0); };
+  const sum = (arr, k) => arr.reduce((a, x) => a + (Number(x[k]) || 0), 0);
+  const shortDate = (iso) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+
+  function normalize(d) {
+    const b = blank();
+    if (!d || typeof d !== "object") return b;
+    return {
+      v: 1,
+      rate: Number(d.rate) > 0 ? Number(d.rate) : b.rate,
+      running: typeof d.running === "string" ? d.running : null,
+      sessions: Array.isArray(d.sessions) ? d.sessions.slice() : [],
+      transfers: Array.isArray(d.transfers) ? d.transfers.slice() : [],
+      spends: Array.isArray(d.spends) ? d.spends.slice() : [],
+      quick: Array.isArray(d.quick) ? d.quick.slice() : b.quick,
+      toggl: Object.assign({}, b.toggl, d.toggl && typeof d.toggl === "object" ? d.toggl : {})
+    };
+  }
+
+  let toastT;
+  function toast(msg) {
+    const t = $("toast");
+    t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT);
+    toastT = setTimeout(() => { t.hidden = true; }, 2600);
+  }
+
+  // ---------- storage (on this phone) ----------
+  function loadSaved() {
+    try {
+      const raw = window.Native ? window.Native.load() : localStorage.getItem(LS_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function save() {
+    const str = JSON.stringify(S);
+    try {
+      if (window.Native) window.Native.save(str);
+      else localStorage.setItem(LS_KEY, str);
+    } catch (e) { toast("Couldn't save. Try again."); }
+  }
+  function setStatus() {
+    $("status").textContent = window.Native ? "Saved on this phone" : "Saved in this browser";
+  }
+
+  // ---------- derived ----------
+  function totals() {
+    const earned = r2(sum(S.sessions, "amt"));
+    const moved = r2(sum(S.transfers, "amt"));
+    const spent = r2(sum(S.spends, "amt"));
+    return { earned, moved, spent, avail: r2(earned - moved), oncard: r2(moved - spent) };
+  }
+  function weekStart() {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    const day = (d.getDay() + 6) % 7; // Monday = 0
+    d.setDate(d.getDate() - day);
+    return d;
+  }
+
+  // ---------- render ----------
+  function render() {
+    const t = totals();
+    $("avail").textContent = money(Math.max(0, t.avail));
+    $("earned").textContent = money(t.earned);
+    $("moved").textContent = money(t.moved);
+    $("oncard").textContent = money(t.oncard);
+    $("oncard").style.color = t.oncard < -0.004 ? "var(--spend)" : "";
+    const note = $("availNote");
+    if (t.avail > 0.004) {
+      note.textContent = "Move this from your main account to your fun card, then log it below.";
+    } else if (t.earned > 0) {
+      note.textContent = "All caught up. Study more to earn your next top-up.";
+    } else {
+      note.innerHTML = "Study to earn. Every hour pays <span class=\"num\">" + esc(money(S.rate)) + "</span>.";
+    }
+    const moveAmt = $("moveAmt");
+    if (document.activeElement !== moveAmt) moveAmt.value = t.avail > 0.004 ? t.avail.toFixed(2) : "";
+    $("moveBtn").disabled = t.avail <= 0.004 && !moveAmt.value;
+
+    if (document.activeElement !== $("rate")) $("rate").value = S.rate;
+    if (!$("manD").value) $("manD").value = ymd(new Date());
+
+    renderClock();
+    renderChips();
+    renderCost();
+    renderSlip();
+    renderHistory();
+    renderQuick();
+    renderToggl();
+  }
+
+  function renderClock() {
+    const on = !!S.running;
+    const btn = $("clockBtn");
+    btn.textContent = on ? "Stop" : "Start";
+    btn.className = on ? "danger" : "primary";
+    const el = $("clock");
+    el.classList.toggle("on", on);
+    if (!on) { el.textContent = "0:00:00"; $("clockLive").textContent = "Not studying right now"; return; }
+    const ms = Math.max(0, Date.now() - new Date(S.running).getTime());
+    const s = Math.floor(ms / 1000);
+    el.textContent = Math.floor(s / 3600) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60);
+    $("clockLive").textContent = "Earning " + money((ms / 3600000) * S.rate) + " so far";
+  }
+
+  function renderChips() {
+    const box = $("chips");
+    if (!S.quick.length) { box.innerHTML = '<span class="small muted">Add quick-tap items in Settings.</span>'; return; }
+    box.innerHTML = S.quick.map((q, i) =>
+      '<button class="chip" data-chip="' + i + '"><span>' + esc(q.item) + '</span><span class="p">' + money(q.amt) +
+      ' · <span class="hrs">' + hrs(q.amt / S.rate) + '</span></span></button>').join("");
+  }
+
+  function renderCost() {
+    const a = parseFloat($("spAmt").value);
+    const el = $("spCost");
+    if (!(a > 0)) { el.textContent = ""; return; }
+    const t = totals();
+    let msg = "Costs " + hrs(a / S.rate) + " of study.";
+    if (a > t.oncard + 0.004) msg += " That's more than your fun card has (" + money(t.oncard) + ").";
+    el.textContent = msg;
+  }
+
+  function renderSlip() {
+    const ws = weekStart();
+    const we = new Date(ws); we.setDate(we.getDate() + 6);
+    $("weekRange").textContent = ws.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " – " + we.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+    const inWeek = (x) => new Date(x.at) >= ws;
+    const ses = S.sessions.filter(inWeek), sp = S.spends.filter(inWeek);
+    const h = sum(ses, "h"), e = r2(sum(ses, "amt")), s = r2(sum(sp, "amt"));
+    const net = r2(e - s);
+    $("slip").innerHTML =
+      "<tr><td>Hours studied</td><td>" + (Math.round(h * 100) / 100).toFixed(2) + " h</td></tr>" +
+      "<tr><td>Earned</td><td class=\"pos\">" + money(e) + "</td></tr>" +
+      "<tr><td>Spent (" + sp.length + (sp.length === 1 ? " item" : " items") + ")</td><td class=\"neg\">" + (s > 0 ? "−" : "") + money(s) + "</td></tr>" +
+      "<tr class=\"total\"><td><b>Net this week</b></td><td class=\"" + (net < 0 ? "neg" : "pos") + "\">" + money(net) + "</td></tr>";
+  }
+
+  let armed = null;
+  function renderHistory() {
+    const items = [];
+    S.sessions.forEach((x) => items.push({ k: "s", x, at: x.at, title: (x.note || (x.src === "timer" ? "Study session" : x.src === "toggl" ? "Toggl entry" : "Study hours")), sub: hrs(x.h) + " · " + (x.src === "toggl" ? "from Toggl" : x.src === "timer" ? "clocked" : "logged by hand"), amt: "+" + money(x.amt) }));
+    S.transfers.forEach((x) => items.push({ k: "t", x, at: x.at, title: "Moved to fun card", sub: "transfer", amt: money(x.amt) }));
+    S.spends.forEach((x) => items.push({ k: "x", x, at: x.at, title: x.item, sub: hrs(x.amt / (x.rate || S.rate)) + " of study", amt: "−" + money(x.amt) }));
+    items.sort((a, b) => (a.at < b.at ? 1 : -1));
+    $("histCount").textContent = items.length ? items.length + (items.length === 1 ? " entry" : " entries") : "";
+    const list = $("hist");
+    if (!items.length) {
+      list.innerHTML = '<li class="empty" style="display:block">Nothing yet. Start the clock, add hours by hand, or import from Toggl, and it shows up here.</li>';
+      return;
+    }
+    list.innerHTML = items.slice(0, 60).map((it) => {
+      const key = it.k + ":" + it.x.id;
+      return '<li><span class="dot ' + it.k + '"></span><span class="what"><b>' + esc(it.title) + '</b><span>' + esc(shortDate(it.at)) + " · " + esc(it.sub) +
+        '</span></span><span class="amt ' + it.k + '">' + esc(it.amt) + '</span><button class="del' + (armed === key ? " armed" : "") + '" data-del="' + esc(key) + '">' + (armed === key ? "Delete?" : "✕") + '</button></li>';
+    }).join("") + (items.length > 60 ? '<li class="small muted" style="display:block">Showing the latest 60.</li>' : "");
+  }
+
+  function renderQuick() {
+    const box = $("qlist");
+    if (!S.quick.length) { box.innerHTML = '<span class="small muted">No quick-tap items yet.</span>'; return; }
+    box.innerHTML = S.quick.map((q, i) => '<div><span>' + esc(q.item) + ' <span class="num muted small">' + money(q.amt) + '</span></span><button class="link" data-qdel="' + i + '">Remove</button></div>').join("");
+  }
+
+  // ---------- actions ----------
+  function addSession(h, atIso, src, note, key) {
+    h = Math.round(h * 100) / 100;
+    if (!(h > 0)) return false;
+    const s = { id: uid(), at: atIso, h, amt: r2(h * S.rate), src };
+    if (note) s.note = note;
+    if (key) s.key = key;
+    S.sessions.push(s);
+    return true;
+  }
+
+  $("clockBtn").addEventListener("click", () => {
+    if (!S.running) {
+      S.running = new Date().toISOString();
+      toast("Clocked in. Go study.");
+    } else {
+      const start = new Date(S.running);
+      const h = (Date.now() - start.getTime()) / 3600000;
+      S.running = null;
+      if (h * 60 < 1) toast("Under a minute, so nothing was logged.");
+      else { addSession(h, start.toISOString(), "timer"); toast("Logged " + hrs(h) + " · +" + money(r2(h * S.rate))); }
+    }
+    render(); save();
+  });
+
+  $("manBtn").addEventListener("click", () => {
+    const h = parseFloat($("manH").value);
+    if (!(h > 0) || h > 24) { toast("Enter the hours you studied, between 0 and 24."); return; }
+    const d = $("manD").value || ymd(new Date());
+    addSession(h, fromYmd(d).toISOString(), "manual", $("manNote").value.trim().slice(0, 80));
+    $("manH").value = ""; $("manNote").value = "";
+    toast("Added " + hrs(h) + " · +" + money(r2(h * S.rate)));
+    render(); save();
+  });
+
+  $("moveAmt").addEventListener("input", () => { $("moveBtn").disabled = !(parseFloat($("moveAmt").value) > 0); });
+  $("moveBtn").addEventListener("click", () => {
+    const a = r2(parseFloat($("moveAmt").value));
+    if (!(a > 0)) { toast("Enter how much you moved to your fun card."); return; }
+    S.transfers.push({ id: uid(), at: new Date().toISOString(), amt: a });
+    $("moveAmt").blur();
+    toast("Logged " + money(a) + " moved to your fun card.");
+    render(); save();
+  });
+
+  function logSpend(item, amt) {
+    amt = r2(amt);
+    if (!item) { toast("Name what you bought."); return; }
+    if (!(amt > 0)) { toast("Enter the price."); return; }
+    S.spends.push({ id: uid(), at: new Date().toISOString(), item: item.slice(0, 60), amt, rate: S.rate });
+    toast(item + " · " + hrs(amt / S.rate) + " of study");
+    render(); save();
+  }
+  $("chips").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-chip]"); if (!b) return;
+    const q = S.quick[Number(b.dataset.chip)]; if (q) logSpend(q.item, q.amt);
+  });
+  $("spAmt").addEventListener("input", renderCost);
+  $("spBtn").addEventListener("click", () => {
+    logSpend($("spItem").value.trim(), parseFloat($("spAmt").value));
+    if ($("spItem").value.trim() && parseFloat($("spAmt").value) > 0) { $("spItem").value = ""; $("spAmt").value = ""; renderCost(); }
+  });
+
+  $("hist").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-del]"); if (!b) return;
+    const key = b.dataset.del;
+    if (armed !== key) { armed = key; renderHistory(); return; }
+    armed = null;
+    const [k, id] = key.split(":");
+    const arr = k === "s" ? S.sessions : k === "t" ? S.transfers : S.spends;
+    const i = arr.findIndex((x) => x.id === id);
+    if (i >= 0) arr.splice(i, 1);
+    toast("Deleted.");
+    render(); save();
+  });
+  document.addEventListener("click", (e) => {
+    if (armed && !e.target.closest("[data-del]")) { armed = null; renderHistory(); }
+  });
+
+  $("rateBtn").addEventListener("click", () => {
+    const r = parseFloat($("rate").value);
+    if (!(r > 0) || r > 1000) { toast("Pick a rate above $0."); return; }
+    S.rate = r2(r);
+    $("rate").blur();
+    toast("New rate: " + money(S.rate) + " per hour.");
+    render(); save();
+  });
+
+  $("qBtn").addEventListener("click", () => {
+    const item = $("qItem").value.trim(), amt = r2(parseFloat($("qAmt").value));
+    if (!item || !(amt > 0)) { toast("Give the item a name and a price."); return; }
+    S.quick.push({ item: item.slice(0, 40), amt });
+    $("qItem").value = ""; $("qAmt").value = "";
+    render(); save();
+  });
+  $("qlist").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-qdel]"); if (!b) return;
+    S.quick.splice(Number(b.dataset.qdel), 1);
+    render(); save();
+  });
+
+  // ---------- Toggl Track sync ----------
+  const calls = {};
+  window.__native = (id, code, body) => {
+    const done = calls[id];
+    if (!done) return;
+    delete calls[id];
+    done({ code, body });
+  };
+  function togglGet(path) {
+    return new Promise((resolve) => {
+      const id = uid();
+      calls[id] = resolve;
+      try { window.Native.toggl(id, path, S.toggl.token); }
+      catch (e) { delete calls[id]; resolve({ code: 0, body: "" }); return; }
+      setTimeout(() => { if (calls[id]) { delete calls[id]; resolve({ code: 0, body: "timeout" }); } }, 30000);
+    });
+  }
+  const isoNoMs = (d) => d.toISOString().replace(/\.\d{3}Z$/, "Z");
+  let syncing = false, tgMsg = "", tgErr = false;
+
+  function renderToggl() {
+    const on = !!S.toggl.token;
+    $("togglOff").hidden = on;
+    $("togglOn").hidden = !on;
+    $("tgConnect").hidden = on;
+    $("tgDisconnect").hidden = !on;
+    if (document.activeElement !== $("tgFilter")) $("tgFilter").value = S.toggl.filter || "";
+    if (document.activeElement !== $("tgFrom")) $("tgFrom").value = S.toggl.from || ymd(new Date());
+    const st = $("tgState");
+    let msg = tgMsg;
+    if (!msg) {
+      msg = S.toggl.last
+        ? "Last synced " + new Date(S.toggl.last).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })
+        : "Connected, not synced yet";
+    }
+    st.textContent = syncing ? "Syncing…" : msg;
+    st.classList.toggle("err", tgErr && !syncing);
+    $("tgSync").disabled = syncing;
+  }
+
+  async function syncToggl(manual) {
+    if (!S.toggl.token || syncing) return;
+    if (!window.Native) { tgMsg = "Toggl sync works in the Android app."; tgErr = true; renderToggl(); return; }
+    syncing = true; tgMsg = ""; tgErr = false; renderToggl();
+    try {
+      const from = S.toggl.from ? fromYmd(S.toggl.from) : new Date();
+      from.setHours(0, 0, 0, 0);
+      const start = new Date(Math.max(from.getTime(), Date.now() - 89 * 86400000));
+      const end = new Date(Date.now() + 86400000);
+      const r = await togglGet("/api/v9/me/time_entries?start_date=" + encodeURIComponent(isoNoMs(start)) + "&end_date=" + encodeURIComponent(isoNoMs(end)));
+      if (r.code === 401 || r.code === 403) { tgErr = true; tgMsg = "Toggl rejected this token. Copy it again from Profile settings → API Token."; return; }
+      if (r.code === 429) { tgErr = true; tgMsg = "Toggl is busy. Try again in a minute."; return; }
+      if (r.code !== 200) { tgErr = true; tgMsg = "Couldn't reach Toggl. Check your internet and try again."; return; }
+      let entries = [];
+      try { entries = JSON.parse(r.body) || []; } catch (e) { entries = []; }
+      if (!Array.isArray(entries)) entries = [];
+      const filter = (S.toggl.filter || "").trim().toLowerCase();
+      let projects = {};
+      if (filter) {
+        const pr = await togglGet("/api/v9/me/projects");
+        if (pr.code === 200) {
+          try { (JSON.parse(pr.body) || []).forEach((p) => { projects[p.id] = p.name || ""; }); } catch (e) {}
+        }
+      }
+      const have = new Set(S.sessions.map((s) => s.key).filter(Boolean));
+      let added = 0, h = 0, amt = 0;
+      for (const e of entries) {
+        if (!e || typeof e.duration !== "number" || e.duration <= 0 || !e.stop || e.server_deleted_at) continue;
+        const key = "toggl:" + e.id;
+        if (have.has(key)) continue;
+        const startAt = new Date(e.start);
+        if (isNaN(startAt.getTime()) || startAt < from) continue;
+        const proj = projects[e.project_id] || "";
+        const tags = Array.isArray(e.tags) ? e.tags.join(" ") : "";
+        const desc = e.description || "";
+        if (filter && !(proj + " " + tags + " " + desc).toLowerCase().includes(filter)) continue;
+        const hours = e.duration / 3600;
+        if (addSession(hours, startAt.toISOString(), "toggl", (desc || proj || "Toggl entry").slice(0, 80), key)) {
+          have.add(key); added++; h += hours; amt += r2(hours * S.rate);
+        }
+      }
+      S.toggl.last = new Date().toISOString();
+      if (added) toast("Synced " + hrs(h) + " from Toggl · +" + money(r2(amt)));
+      else if (manual) toast("No new finished Toggl entries.");
+      save();
+    } finally {
+      syncing = false;
+      render();
+    }
+  }
+
+  $("tgConnect").addEventListener("click", () => {
+    const t = $("tgToken").value.trim();
+    if (t.length < 16) { toast("Paste your Toggl API token first."); return; }
+    S.toggl.token = t;
+    S.toggl.filter = $("tgFilter").value.trim();
+    S.toggl.from = $("tgFrom").value || ymd(new Date());
+    S.toggl.last = "";
+    $("tgToken").value = "";
+    save(); render();
+    syncToggl(true);
+  });
+  $("tgDisconnect").addEventListener("click", () => {
+    S.toggl.token = ""; S.toggl.last = ""; tgMsg = ""; tgErr = false;
+    toast("Toggl disconnected. Hours already synced stay.");
+    save(); render();
+  });
+  $("tgSync").addEventListener("click", () => syncToggl(true));
+  $("tgFilter").addEventListener("change", () => { S.toggl.filter = $("tgFilter").value.trim(); save(); });
+  $("tgFrom").addEventListener("change", () => { S.toggl.from = $("tgFrom").value; save(); });
+
+  window.onNativeResume = () => {
+    render();
+    const last = S.toggl.last ? new Date(S.toggl.last).getTime() : 0;
+    if (S.toggl.token && Date.now() - last > 2 * 60 * 1000) syncToggl(false);
+  };
+
+  setInterval(() => { if (S.running) renderClock(); }, 1000);
+  const saved = loadSaved();
+  if (saved) S = normalize(saved);
+  setStatus();
+  render();
+  window.onNativeResume();
+})();
+</script>
+</body>
+</html>
