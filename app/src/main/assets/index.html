@@ -227,7 +227,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
       <div class="inner">
         <div id="togglOff">
           <div class="inner" style="padding-top:0">
-            <p class="small muted">Paste your Toggl API token and finished Toggl entries turn into pay automatically. Find it in Toggl on the web: Profile settings → API Token. It stays on this phone.</p>
+            <p class="small muted">Paste your Toggl API token and finished Toggl entries turn into pay automatically. Find it in Toggl on the web: Profile settings → API Token. It stays on this phone. The app syncs when you open it (at most every 10 minutes), using 1 of Toggl's 30 free requests an hour.</p>
             <label class="field" for="tgToken"><span>Toggl API token</span><input id="tgToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="32-character token"></label>
           </div>
         </div>
@@ -270,7 +270,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     v: 1, rate: 1, running: null,
     sessions: [], transfers: [], spends: [],
     quick: [{ item: "PGP chicken rice", amt: 3.3 }],
-    toggl: { token: "", filter: "", from: "", last: "" }
+    toggl: { token: "", filter: "", from: "", last: "", pausedUntil: "", projects: {}, projectsAt: "" }
   });
   let S = blank();
 
@@ -523,17 +523,28 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
       const end = new Date(Date.now() + 86400000);
       const r = await togglGet("/api/v9/me/time_entries?start_date=" + encodeURIComponent(isoNoMs(start)) + "&end_date=" + encodeURIComponent(isoNoMs(end)));
       if (r.code === 401 || r.code === 403) { tgErr = true; tgMsg = "Toggl rejected this token. Copy it again from Profile settings → API Token."; return; }
-      if (r.code === 429) { tgErr = true; tgMsg = "Toggl is busy. Try again in a minute."; return; }
+      if (r.code === 402 || r.code === 429) {
+        S.toggl.pausedUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        tgErr = true; tgMsg = "Toggl's free plan allows 30 requests an hour and that's used up. Auto-sync pauses for an hour.";
+        save(); return;
+      }
       if (r.code !== 200) { tgErr = true; tgMsg = "Couldn't reach Toggl. Check your internet and try again."; return; }
       let entries = [];
       try { entries = JSON.parse(r.body) || []; } catch (e) { entries = []; }
       if (!Array.isArray(entries)) entries = [];
       const filter = (S.toggl.filter || "").trim().toLowerCase();
-      let projects = {};
-      if (filter) {
+      // Project names change rarely, so fetch them at most once a day (or when an entry's project is unknown).
+      let projects = S.toggl.projects || {};
+      const stale = !S.toggl.projectsAt || Date.now() - new Date(S.toggl.projectsAt).getTime() > 86400000;
+      const unknown = entries.some((e) => e && e.project_id && !(e.project_id in projects));
+      if (filter && (stale || unknown)) {
         const pr = await togglGet("/api/v9/me/projects");
         if (pr.code === 200) {
-          try { (JSON.parse(pr.body) || []).forEach((p) => { projects[p.id] = p.name || ""; }); } catch (e) {}
+          try {
+            projects = {};
+            (JSON.parse(pr.body) || []).forEach((p) => { projects[p.id] = p.name || ""; });
+            S.toggl.projects = projects; S.toggl.projectsAt = new Date().toISOString();
+          } catch (e) {}
         }
       }
       const have = new Set(S.sessions.map((s) => s.key).filter(Boolean));
@@ -554,6 +565,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
         }
       }
       S.toggl.last = new Date().toISOString();
+      S.toggl.pausedUntil = "";
       if (added) toast("Synced " + hrs(h) + " from Toggl · +" + money(r2(amt)));
       else if (manual) toast("No new finished Toggl entries.");
       save();
@@ -580,13 +592,14 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     save(); render();
   });
   $("tgSync").addEventListener("click", () => syncToggl(true));
-  $("tgFilter").addEventListener("change", () => { S.toggl.filter = $("tgFilter").value.trim(); save(); });
+  $("tgFilter").addEventListener("change", () => { S.toggl.filter = $("tgFilter").value.trim(); S.toggl.projectsAt = ""; save(); });
   $("tgFrom").addEventListener("change", () => { S.toggl.from = $("tgFrom").value; save(); });
 
   window.onNativeResume = () => {
     render();
     const last = S.toggl.last ? new Date(S.toggl.last).getTime() : 0;
-    if (S.toggl.token && Date.now() - last > 2 * 60 * 1000) syncToggl(false);
+    const paused = S.toggl.pausedUntil && Date.now() < new Date(S.toggl.pausedUntil).getTime();
+    if (S.toggl.token && !paused && Date.now() - last > 10 * 60 * 1000) syncToggl(false);
   };
 
   setInterval(() => { if (S.running) renderClock(); }, 1000);
