@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one narrow column styled like a pay stub on ledger paper — the stub (what you can move to your fun card) on top, then clock-in, spending, and this week's payslip. */
+/* Layout: one narrow column styled like a pay stub on ledger paper — the stub (what you can transfer) on top, then clock-in, history and settings. */
 :root {
   --paper: #EBF1E9;
   --sheet: #FAFCF8;
@@ -184,21 +184,21 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 
   <section class="stub" aria-label="Your balance">
     <div class="stub-main">
-      <span class="label">Ready to move to your fun card</span>
+      <span class="label">Ready to transfer</span>
       <div class="big" id="avail">$0.00</div>
       <p class="small muted" id="availNote">Study to earn. Every hour pays <span class="num" id="rateInline">$1.00</span>.</p>
       <div class="move">
-        <label class="field" for="moveAmt"><span>Amount you moved</span>
+        <label class="field" for="moveAmt"><span>Amount you transferred</span>
           <span class="prefix"><i>$</i><input id="moveAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></span>
         </label>
-        <button class="primary" id="moveBtn" style="align-self:flex-end">I moved it</button>
+        <button class="primary" id="moveBtn" style="align-self:flex-end">I transferred it</button>
       </div>
     </div>
     <div class="perf" aria-hidden="true"></div>
     <div class="stub-foot">
+      <div><div class="label">Studied</div><div class="v" id="hoursTotal">0 min</div></div>
       <div><div class="label">Earned</div><div class="v" id="earned">$0.00</div></div>
-      <div><div class="label">Moved</div><div class="v" id="moved">$0.00</div></div>
-      <div><div class="label">On card</div><div class="v" id="oncard">$0.00</div></div>
+      <div><div class="label">Transferred</div><div class="v" id="moved">$0.00</div></div>
     </div>
   </section>
 
@@ -243,21 +243,6 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     </details>
   </section>
 
-  <section class="card" aria-labelledby="spendH">
-    <div class="card-head"><h2 id="spendH">Spend</h2><span class="small muted">Tap what you bought</span></div>
-    <div class="chips" id="chips"></div>
-    <div class="row">
-      <label class="field" for="spItem" style="flex:2 1 150px"><span>Item</span><input id="spItem" type="text" placeholder="Bubble tea"></label>
-      <label class="field" for="spAmt"><span>Price</span><span class="prefix"><i>$</i><input id="spAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="4.50"></span></label>
-    </div>
-    <div class="cost" id="spCost"></div>
-    <button class="danger" id="spBtn">Log spend</button>
-  </section>
-
-  <section class="card" aria-labelledby="weekH">
-    <div class="card-head"><h2 id="weekH">This week's payslip</h2><span class="small muted num" id="weekRange"></span></div>
-    <table class="slip"><tbody id="slip"></tbody></table>
-  </section>
 
   <section class="card" aria-labelledby="histH">
     <div class="card-head"><h2 id="histH">History</h2><span class="small muted" id="histCount"></span></div>
@@ -271,17 +256,6 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
       <button id="rateBtn">Save rate</button>
     </div>
     <p class="small muted">A new rate applies to hours you log from now on. Hours already logged keep what they paid.</p>
-    <details>
-      <summary>Quick-tap items</summary>
-      <div class="inner">
-        <div class="qlist" id="qlist"></div>
-        <div class="row">
-          <label class="field" for="qItem" style="flex:2 1 150px"><span>Item</span><input id="qItem" type="text" placeholder="Kopi"></label>
-          <label class="field" for="qAmt"><span>Price</span><span class="prefix"><i>$</i><input id="qAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="1.40"></span></label>
-        </div>
-        <button id="qBtn">Add item</button>
-      </div>
-    </details>
   </section>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
@@ -361,14 +335,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   function totals() {
     const earned = r2(sum(S.sessions, "amt"));
     const moved = r2(sum(S.transfers, "amt"));
-    const spent = r2(sum(S.spends, "amt"));
-    return { earned, moved, spent, avail: r2(earned - moved), oncard: r2(moved - spent) };
-  }
-  function weekStart() {
-    const d = new Date(); d.setHours(0, 0, 0, 0);
-    const day = (d.getDay() + 6) % 7; // Monday = 0
-    d.setDate(d.getDate() - day);
-    return d;
+    return { hours: sum(S.sessions, "h"), earned, moved, avail: r2(earned - moved) };
   }
 
   // ---------- render ----------
@@ -377,11 +344,10 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     $("avail").textContent = money(Math.max(0, t.avail));
     $("earned").textContent = money(t.earned);
     $("moved").textContent = money(t.moved);
-    $("oncard").textContent = money(t.oncard);
-    $("oncard").style.color = t.oncard < -0.004 ? "var(--spend)" : "";
+    $("hoursTotal").textContent = hrs(t.hours);
     const note = $("availNote");
     if (t.avail > 0.004) {
-      note.textContent = "Move this from your main account to your fun card, then log it below.";
+      note.textContent = "Send this to your bank account, then tap I transferred it.";
     } else if (t.earned > 0) {
       note.textContent = "All caught up. Study more to earn your next top-up.";
     } else {
@@ -395,11 +361,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     if (!$("manD").value) $("manD").value = ymd(new Date());
 
     renderClock();
-    renderChips();
-    renderCost();
-    renderSlip();
     renderHistory();
-    renderQuick();
     renderToggl();
   }
 
@@ -417,50 +379,17 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     $("clockLive").textContent = "Earning " + money((ms / 3600000) * S.rate) + " so far";
   }
 
-  function renderChips() {
-    const box = $("chips");
-    if (!S.quick.length) { box.innerHTML = '<span class="small muted">Add quick-tap items in Settings.</span>'; return; }
-    box.innerHTML = S.quick.map((q, i) =>
-      '<button class="chip" data-chip="' + i + '"><span>' + esc(q.item) + '</span><span class="p">' + money(q.amt) +
-      ' · <span class="hrs">' + hrs(q.amt / S.rate) + '</span></span></button>').join("");
-  }
-
-  function renderCost() {
-    const a = parseFloat($("spAmt").value);
-    const el = $("spCost");
-    if (!(a > 0)) { el.textContent = ""; return; }
-    const t = totals();
-    let msg = "Costs " + hrs(a / S.rate) + " of study.";
-    if (a > t.oncard + 0.004) msg += " That's more than your fun card has (" + money(t.oncard) + ").";
-    el.textContent = msg;
-  }
-
-  function renderSlip() {
-    const ws = weekStart();
-    const we = new Date(ws); we.setDate(we.getDate() + 6);
-    $("weekRange").textContent = ws.toLocaleDateString(undefined, { day: "numeric", month: "short" }) + " – " + we.toLocaleDateString(undefined, { day: "numeric", month: "short" });
-    const inWeek = (x) => new Date(x.at) >= ws;
-    const ses = S.sessions.filter(inWeek), sp = S.spends.filter(inWeek);
-    const h = sum(ses, "h"), e = r2(sum(ses, "amt")), s = r2(sum(sp, "amt"));
-    const net = r2(e - s);
-    $("slip").innerHTML =
-      "<tr><td>Hours studied</td><td>" + (Math.round(h * 100) / 100).toFixed(2) + " h</td></tr>" +
-      "<tr><td>Earned</td><td class=\"pos\">" + money(e) + "</td></tr>" +
-      "<tr><td>Spent (" + sp.length + (sp.length === 1 ? " item" : " items") + ")</td><td class=\"neg\">" + (s > 0 ? "−" : "") + money(s) + "</td></tr>" +
-      "<tr class=\"total\"><td><b>Net this week</b></td><td class=\"" + (net < 0 ? "neg" : "pos") + "\">" + money(net) + "</td></tr>";
-  }
 
   let armed = null;
   function renderHistory() {
     const items = [];
     S.sessions.forEach((x) => items.push({ k: "s", x, at: x.at, title: (x.note || (x.src === "timer" ? "Study session" : x.src === "toggl" ? "Toggl entry" : "Study hours")), sub: hrs(x.h) + " · " + (x.src === "toggl" ? "from Toggl" : x.src === "timer" ? "clocked" : "logged by hand"), amt: "+" + money(x.amt) }));
-    S.transfers.forEach((x) => items.push({ k: "t", x, at: x.at, title: "Moved to fun card", sub: "transfer", amt: money(x.amt) }));
-    S.spends.forEach((x) => items.push({ k: "x", x, at: x.at, title: x.item, sub: hrs(x.amt / (x.rate || S.rate)) + " of study", amt: "−" + money(x.amt) }));
+    S.transfers.forEach((x) => items.push({ k: "t", x, at: x.at, title: "Transferred", sub: "to your account", amt: money(x.amt) }));
     items.sort((a, b) => (a.at < b.at ? 1 : -1));
     $("histCount").textContent = items.length ? items.length + (items.length === 1 ? " entry" : " entries") : "";
     const list = $("hist");
     if (!items.length) {
-      list.innerHTML = '<li class="empty" style="display:block">Nothing yet. Start the clock, add hours by hand, or import from Toggl, and it shows up here.</li>';
+      list.innerHTML = '<li class="empty" style="display:block">Nothing yet. Start the clock, add hours by hand, or connect Toggl, and it shows up here.</li>';
       return;
     }
     list.innerHTML = items.slice(0, 60).map((it) => {
@@ -470,11 +399,6 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     }).join("") + (items.length > 60 ? '<li class="small muted" style="display:block">Showing the latest 60.</li>' : "");
   }
 
-  function renderQuick() {
-    const box = $("qlist");
-    if (!S.quick.length) { box.innerHTML = '<span class="small muted">No quick-tap items yet.</span>'; return; }
-    box.innerHTML = S.quick.map((q, i) => '<div><span>' + esc(q.item) + ' <span class="num muted small">' + money(q.amt) + '</span></span><button class="link" data-qdel="' + i + '">Remove</button></div>').join("");
-  }
 
   // ---------- actions ----------
   function addSession(h, atIso, src, note, key) {
@@ -514,30 +438,13 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   $("moveAmt").addEventListener("input", () => { $("moveBtn").disabled = !(parseFloat($("moveAmt").value) > 0); });
   $("moveBtn").addEventListener("click", () => {
     const a = r2(parseFloat($("moveAmt").value));
-    if (!(a > 0)) { toast("Enter how much you moved to your fun card."); return; }
+    if (!(a > 0)) { toast("Enter how much you transferred."); return; }
     S.transfers.push({ id: uid(), at: new Date().toISOString(), amt: a });
     $("moveAmt").blur();
-    toast("Logged " + money(a) + " moved to your fun card.");
+    toast("Logged " + money(a) + " transferred.");
     render(); save();
   });
 
-  function logSpend(item, amt) {
-    amt = r2(amt);
-    if (!item) { toast("Name what you bought."); return; }
-    if (!(amt > 0)) { toast("Enter the price."); return; }
-    S.spends.push({ id: uid(), at: new Date().toISOString(), item: item.slice(0, 60), amt, rate: S.rate });
-    toast(item + " · " + hrs(amt / S.rate) + " of study");
-    render(); save();
-  }
-  $("chips").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-chip]"); if (!b) return;
-    const q = S.quick[Number(b.dataset.chip)]; if (q) logSpend(q.item, q.amt);
-  });
-  $("spAmt").addEventListener("input", renderCost);
-  $("spBtn").addEventListener("click", () => {
-    logSpend($("spItem").value.trim(), parseFloat($("spAmt").value));
-    if ($("spItem").value.trim() && parseFloat($("spAmt").value) > 0) { $("spItem").value = ""; $("spAmt").value = ""; renderCost(); }
-  });
 
   $("hist").addEventListener("click", (e) => {
     const b = e.target.closest("[data-del]"); if (!b) return;
@@ -564,18 +471,6 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     render(); save();
   });
 
-  $("qBtn").addEventListener("click", () => {
-    const item = $("qItem").value.trim(), amt = r2(parseFloat($("qAmt").value));
-    if (!item || !(amt > 0)) { toast("Give the item a name and a price."); return; }
-    S.quick.push({ item: item.slice(0, 40), amt });
-    $("qItem").value = ""; $("qAmt").value = "";
-    render(); save();
-  });
-  $("qlist").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-qdel]"); if (!b) return;
-    S.quick.splice(Number(b.dataset.qdel), 1);
-    render(); save();
-  });
 
   // ---------- Toggl Track sync ----------
   const calls = {};

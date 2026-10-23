@@ -1,13 +1,12 @@
 # Study Wage
 
-Study time becomes pocket money. Every hour you study pays you (default $1/h). You move what you've earned from your main account to a separate "fun card", then log what you buy and see what it cost in study hours.
+Study time becomes pocket money. Every hour you study pays you (default $1/h). The app tells you how much you've earned and not yet transferred, so you know exactly what to send to your bank account.
 
 ## What it does
 
 - **Clock in** with the built-in timer, log hours by hand, or **sync from Toggl Track** with your API token
-- **Ready to move**: earnings you haven't transferred to your fun card yet
-- **Spend** with one-tap items, each priced in hours of study (PGP chicken rice = 3.3 h)
-- **This week's payslip**: hours, earned, spent, net
+- **Ready to transfer**: earnings you haven't sent to your account yet; tap "I transferred it" once you have
+- **History** of study sessions and transfers
 - Everything is saved on the phone
 
 ## Install
