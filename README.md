@@ -4,7 +4,7 @@ Study time becomes pocket money. Every hour you study pays you (default $1/h). T
 
 ## What it does
 
-- **Clock in** with the built-in timer, log hours by hand, or **sync from Toggl Track** with your API token
+- **Hours studied** come from **Toggl Track**: connect once with your API token and finished entries sync automatically
 - **Ready to transfer**: earnings you haven't sent to your account yet; tap "I transferred it" once you have
 - **History** of study sessions and transfers
 - Everything is saved on the phone

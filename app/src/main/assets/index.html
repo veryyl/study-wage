@@ -8,18 +8,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600..800&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-/* Layout: one narrow column styled like a pay stub on ledger paper — the stub (what you can transfer) on top, then clock-in, history and settings. */
+/* Layout: one narrow column styled like a pay stub on lavender paper — the stub (what you can transfer) on top, then hours studied from Toggl, history and settings. */
 :root {
-  --paper: #EBF1E9;
-  --sheet: #FAFCF8;
-  --ink: #16261E;
-  --muted: #586B5F;
-  --line: #C7D5C9;
-  --earn: #1D7448;
-  --earn-soft: #DAEEE0;
+  --paper: #F3ECFF;
+  --sheet: #FFFFFF;
+  --ink: #23123A;
+  --muted: #6A5986;
+  --line: #DCCDF5;
+  --earn: #7C3AED;
+  --earn-soft: #ECE2FF;
   --on-earn: #FFFFFF;
-  --spend: #AE2257;
-  --spend-soft: #F7E0E9;
+  --spend: #D6246E;
+  --spend-soft: #FFE1EE;
   --font-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
   --font-body: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
@@ -27,14 +27,14 @@
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --paper: #0D1511; --sheet: #15201A; --ink: #DFEBE3; --muted: #92A799; --line: #2A3A31;
-    --earn: #6CD199; --earn-soft: #1B3426; --on-earn: #0D1511; --spend: #F08AAE; --spend-soft: #3A1D29;
+    --paper: #140A24; --sheet: #1F1236; --ink: #F1E9FF; --muted: #AB9BC9; --line: #3A2A58;
+    --earn: #B98CFF; --earn-soft: #2E1C4D; --on-earn: #140A24; --spend: #FF7AB0; --spend-soft: #44162E;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
-  --paper: #0D1511; --sheet: #15201A; --ink: #DFEBE3; --muted: #92A799; --line: #2A3A31;
-  --earn: #6CD199; --earn-soft: #1B3426; --on-earn: #0D1511; --spend: #F08AAE; --spend-soft: #3A1D29;
+  --paper: #140A24; --sheet: #1F1236; --ink: #F1E9FF; --muted: #AB9BC9; --line: #3A2A58;
+  --earn: #B98CFF; --earn-soft: #2E1C4D; --on-earn: #140A24; --spend: #FF7AB0; --spend-soft: #44162E;
   color-scheme: dark;
 }
 
@@ -116,11 +116,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 button.link { background: none; border: none; padding: 4px 6px; color: var(--muted); font-weight: 500; }
 
 /* Clock */
-.clock { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.clock-time { font-family: var(--font-num); font-weight: 600; font-size: 2rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
-.clock-time.on { color: var(--earn); }
-.clock .live { font-size: 0.8rem; color: var(--muted); }
-.clock button { min-width: 120px; padding-block: 12px; }
+.hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.hv { font-family: var(--font-num); font-weight: 600; font-size: 1.9rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; }
 
 details { border-top: 1px solid var(--line); padding-top: 10px; }
 summary { cursor: pointer; font-weight: 600; font-size: 0.92rem; list-style: none; display: flex; justify-content: space-between; gap: 8px; }
@@ -186,7 +183,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <div class="stub-main">
       <span class="label">Ready to transfer</span>
       <div class="big" id="avail">$0.00</div>
-      <p class="small muted" id="availNote">Study to earn. Every hour pays <span class="num" id="rateInline">$1.00</span>.</p>
+      <p class="small muted" id="availNote">Study (tracked in Toggl) to earn. Every hour pays <span class="num" id="rateInline">$1.00</span>.</p>
       <div class="move">
         <label class="field" for="moveAmt"><span>Amount you transferred</span>
           <span class="prefix"><i>$</i><input id="moveAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00"></span>
@@ -202,45 +199,30 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     </div>
   </section>
 
-  <section class="card" aria-labelledby="clockH">
-    <div class="card-head"><h2 id="clockH">Clock in</h2><span class="small muted">Study time becomes money</span></div>
-    <div class="clock">
-      <div>
-        <div class="clock-time" id="clock">0:00:00</div>
-        <div class="live" id="clockLive">Not studying right now</div>
-      </div>
-      <button class="primary" id="clockBtn">Start</button>
+  <section class="card" aria-labelledby="hoursH">
+    <div class="card-head"><h2 id="hoursH">Hours studied</h2><span class="small muted">From Toggl Track</span></div>
+    <div class="hours">
+      <div><div class="label">Today</div><div class="hv" id="hToday">0 h</div></div>
+      <div><div class="label">This week</div><div class="hv" id="hWeek">0 h</div></div>
     </div>
-    <details id="manualBox">
-      <summary>Log hours by hand</summary>
+    <div id="togglOn" class="sync" hidden>
+      <span class="state" id="tgState">Connected</span>
+      <button id="tgSync">Sync now</button>
+    </div>
+    <div id="togglOff" class="inner" style="padding-top:0;display:flex;flex-direction:column;gap:10px">
+      <p class="small muted">Connect Toggl Track and every finished Toggl entry turns into pay. Paste your API token from Toggl on the web: Profile settings → API Token. It stays on this phone.</p>
+      <label class="field" for="tgToken"><span>Toggl API token</span><input id="tgToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="32-character token"></label>
+    </div>
+    <details id="tgSettings">
+      <summary>Toggl settings</summary>
       <div class="inner">
-        <div class="row">
-          <label class="field" for="manH"><span>Hours</span><input id="manH" type="number" inputmode="decimal" min="0" step="0.25" placeholder="1.5"></label>
-          <label class="field" for="manD"><span>Day</span><input id="manD" type="date"></label>
-        </div>
-        <label class="field" for="manNote"><span>What you studied (optional)</span><input id="manNote" type="text" placeholder="EC1101E tutorial"></label>
-        <button class="primary" id="manBtn">Add hours</button>
-      </div>
-    </details>
-    <details id="togglBox">
-      <summary>Toggl Track sync</summary>
-      <div class="inner">
-        <div id="togglOff">
-          <div class="inner" style="padding-top:0">
-            <p class="small muted">Paste your Toggl API token and finished Toggl entries turn into pay automatically. Find it in Toggl on the web: Profile settings → API Token. It stays on this phone. The app syncs when you open it (at most every 10 minutes), using 1 of Toggl's 30 free requests an hour.</p>
-            <label class="field" for="tgToken"><span>Toggl API token</span><input id="tgToken" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="32-character token"></label>
-          </div>
-        </div>
-        <div id="togglOn" class="sync" hidden>
-          <span class="state" id="tgState">Connected</span>
-          <button id="tgSync">Sync now</button>
-        </div>
         <label class="field" for="tgFilter"><span>Only count entries whose project, tag or description contains</span><input id="tgFilter" type="text" placeholder="Leave empty to count everything"></label>
         <label class="field" for="tgFrom"><span>Count Toggl entries from</span><input id="tgFrom" type="date"></label>
-        <button class="primary" id="tgConnect">Connect Toggl</button>
+        <p class="small muted">The app syncs when you open it, at most every 10 minutes, using 1 of Toggl's 30 free requests an hour.</p>
         <button class="link" id="tgDisconnect" hidden>Disconnect Toggl</button>
       </div>
     </details>
+    <button class="primary" id="tgConnect">Connect Toggl</button>
   </section>
 
 
@@ -332,6 +314,19 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   }
 
   // ---------- derived ----------
+  function weekStart() {
+    const d = new Date(); d.setHours(0, 0, 0, 0);
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back to Monday
+    return d;
+  }
+  const hrsTotal = (h) => (h > 0.004 ? hrs(h) : "0 h");
+  function renderHours() {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const ws = weekStart();
+    const since = (d) => sum(S.sessions.filter((x) => new Date(x.at) >= d), "h");
+    $("hToday").textContent = hrsTotal(since(today));
+    $("hWeek").textContent = hrsTotal(since(ws));
+  }
   function totals() {
     const earned = r2(sum(S.sessions, "amt"));
     const moved = r2(sum(S.transfers, "amt"));
@@ -344,41 +339,25 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     $("avail").textContent = money(Math.max(0, t.avail));
     $("earned").textContent = money(t.earned);
     $("moved").textContent = money(t.moved);
-    $("hoursTotal").textContent = hrs(t.hours);
+    $("hoursTotal").textContent = hrsTotal(t.hours);
     const note = $("availNote");
     if (t.avail > 0.004) {
       note.textContent = "Send this to your bank account, then tap I transferred it.";
     } else if (t.earned > 0) {
       note.textContent = "All caught up. Study more to earn your next top-up.";
     } else {
-      note.innerHTML = "Study to earn. Every hour pays <span class=\"num\">" + esc(money(S.rate)) + "</span>.";
+      note.innerHTML = "Study (tracked in Toggl) to earn. Every hour pays <span class=\"num\">" + esc(money(S.rate)) + "</span>.";
     }
     const moveAmt = $("moveAmt");
     if (document.activeElement !== moveAmt) moveAmt.value = t.avail > 0.004 ? t.avail.toFixed(2) : "";
     $("moveBtn").disabled = t.avail <= 0.004 && !moveAmt.value;
 
     if (document.activeElement !== $("rate")) $("rate").value = S.rate;
-    if (!$("manD").value) $("manD").value = ymd(new Date());
 
-    renderClock();
+    renderHours();
     renderHistory();
     renderToggl();
   }
-
-  function renderClock() {
-    const on = !!S.running;
-    const btn = $("clockBtn");
-    btn.textContent = on ? "Stop" : "Start";
-    btn.className = on ? "danger" : "primary";
-    const el = $("clock");
-    el.classList.toggle("on", on);
-    if (!on) { el.textContent = "0:00:00"; $("clockLive").textContent = "Not studying right now"; return; }
-    const ms = Math.max(0, Date.now() - new Date(S.running).getTime());
-    const s = Math.floor(ms / 1000);
-    el.textContent = Math.floor(s / 3600) + ":" + pad(Math.floor(s / 60) % 60) + ":" + pad(s % 60);
-    $("clockLive").textContent = "Earning " + money((ms / 3600000) * S.rate) + " so far";
-  }
-
 
   let armed = null;
   function renderHistory() {
@@ -389,7 +368,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     $("histCount").textContent = items.length ? items.length + (items.length === 1 ? " entry" : " entries") : "";
     const list = $("hist");
     if (!items.length) {
-      list.innerHTML = '<li class="empty" style="display:block">Nothing yet. Start the clock, add hours by hand, or connect Toggl, and it shows up here.</li>';
+      list.innerHTML = '<li class="empty" style="display:block">Nothing yet. Connect Toggl Track and your study sessions show up here.</li>';
       return;
     }
     list.innerHTML = items.slice(0, 60).map((it) => {
@@ -410,30 +389,6 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     S.sessions.push(s);
     return true;
   }
-
-  $("clockBtn").addEventListener("click", () => {
-    if (!S.running) {
-      S.running = new Date().toISOString();
-      toast("Clocked in. Go study.");
-    } else {
-      const start = new Date(S.running);
-      const h = (Date.now() - start.getTime()) / 3600000;
-      S.running = null;
-      if (h * 60 < 1) toast("Under a minute, so nothing was logged.");
-      else { addSession(h, start.toISOString(), "timer"); toast("Logged " + hrs(h) + " · +" + money(r2(h * S.rate))); }
-    }
-    render(); save();
-  });
-
-  $("manBtn").addEventListener("click", () => {
-    const h = parseFloat($("manH").value);
-    if (!(h > 0) || h > 24) { toast("Enter the hours you studied, between 0 and 24."); return; }
-    const d = $("manD").value || ymd(new Date());
-    addSession(h, fromYmd(d).toISOString(), "manual", $("manNote").value.trim().slice(0, 80));
-    $("manH").value = ""; $("manNote").value = "";
-    toast("Added " + hrs(h) + " · +" + money(r2(h * S.rate)));
-    render(); save();
-  });
 
   $("moveAmt").addEventListener("input", () => { $("moveBtn").disabled = !(parseFloat($("moveAmt").value) > 0); });
   $("moveBtn").addEventListener("click", () => {
@@ -496,6 +451,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     const on = !!S.toggl.token;
     $("togglOff").hidden = on;
     $("togglOn").hidden = !on;
+    if (!on) $("tgSettings").open = true;
     $("tgConnect").hidden = on;
     $("tgDisconnect").hidden = !on;
     if (document.activeElement !== $("tgFilter")) $("tgFilter").value = S.toggl.filter || "";
@@ -583,6 +539,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     S.toggl.from = $("tgFrom").value || ymd(new Date());
     S.toggl.last = "";
     $("tgToken").value = "";
+    $("tgSettings").open = false;
     save(); render();
     syncToggl(true);
   });
@@ -602,7 +559,6 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     if (S.toggl.token && !paused && Date.now() - last > 10 * 60 * 1000) syncToggl(false);
   };
 
-  setInterval(() => { if (S.running) renderClock(); }, 1000);
   const saved = loadSaved();
   if (saved) S = normalize(saved);
   setStatus();
