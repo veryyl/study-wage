@@ -7,7 +7,7 @@ Study time becomes pocket money. Every hour you study pays you (default $1/h). T
 - **Hours studied** come from **Toggl Track**: connect once with your API token and finished entries sync automatically
 - **Ready to transfer**: earnings you haven't sent to your account yet; tap "I transferred it" once you have
 - **Locked-in rate**: you pick your hourly pay once, on first launch
-- **Bonuses**: +10% on days over 3 hours, +10% for a whole week with a 5-day streak (30+ min a day); they stack
+- **Bonuses**: +10% on days over 3 hours; +20% on every day from the 10th day in a row (30+ min a day) while the streak lasts; they stack
 - **History** of study sessions and transfers
 - **Home-screen widget**: a 4×1 bar with hours studied, earned and to transfer; tap ↻ to sync Toggl, refreshes itself about every 30 minutes
 - Everything is saved on the phone

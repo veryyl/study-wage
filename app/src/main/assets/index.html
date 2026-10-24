@@ -202,8 +202,8 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <label class="field" for="obRate"><span>Pay per hour of study</span><span class="prefix"><i>$</i><input id="obRate" type="number" inputmode="decimal" min="0.1" step="0.1" value="1.00"></span></label>
     <ul class="rules">
       <li><b>+10%</b> on any day you study more than 3 hours</li>
-      <li><b>+10%</b> for the whole week once you study 5 days in a row (30 min or more each day, Monday to Sunday)</li>
-      <li>Both together pay <b>+20%</b></li>
+      <li><b>+20%</b> on every day from the 10th day in a row (30 min or more each day) until the streak breaks</li>
+      <li>Both together pay <b>+30%</b></li>
     </ul>
     <p class="small muted" id="obNote">Hours you've already synced will be paid at this rate too.</p>
     <button class="primary" id="obBtn">Lock in rate</button>
@@ -272,8 +272,8 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <div class="rate-line"><span class="num rate-big" id="rateShow">$1.00</span><span class="muted">per hour of study</span></div>
     <ul class="rules">
       <li><b>+10%</b> on any day you study more than 3 hours</li>
-      <li><b>+10%</b> for the whole week once you study 5 days in a row (30 min or more each day, Monday to Sunday)</li>
-      <li>Both together pay <b>+20%</b></li>
+      <li><b>+20%</b> on every day from the 10th day in a row (30 min or more each day) until the streak breaks</li>
+      <li>Both together pay <b>+30%</b></li>
     </ul>
   </section>
 </div>
@@ -367,27 +367,27 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   }
   // Pay = hours x your locked-in rate, with bonuses (the widget's State.java repeats these rules):
   //   +10% for a day with more than 3 hours
-  //   +10% for a whole Monday-Sunday week that has 5 days in a row of 30+ minutes each
-  const BONUS = 0.10, BIG_DAY_H = 3, STREAK_DAYS = 5, STREAK_MIN_H = 0.5;
+  //   +20% for every day from the 10th day in a row of 30+ minutes, while the streak lasts
+  const BIG_BONUS = 0.10, BIG_DAY_H = 3, STREAK_BONUS = 0.20, STREAK_DAYS = 10, STREAK_MIN_H = 0.5;
   const mondayOf = (key) => { const d = fromYmd(key); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); };
   const addDays = (key, n) => { const d = fromYmd(key); d.setDate(d.getDate() + n); return ymd(d); };
   function earnings() {
     const days = {};
     S.sessions.forEach((x) => { const k = ymd(new Date(x.at)); days[k] = (days[k] || 0) + (Number(x.h) || 0); });
-    const streak = {};
-    Object.keys(days).forEach((k) => {
-      const w = mondayOf(k);
-      if (w in streak) return;
-      let run = 0, best = 0;
-      for (let i = 0; i < 7; i++) {
-        if ((days[addDays(w, i)] || 0) >= STREAK_MIN_H) { run++; best = Math.max(best, run); } else run = 0;
+    // run[k] = how many qualifying days in a row end on day k (0 if day k doesn't qualify)
+    const run = {};
+    const keys = Object.keys(days).sort();
+    if (keys.length) {
+      let n = 0;
+      for (let k = keys[0]; k <= keys[keys.length - 1]; k = addDays(k, 1)) {
+        n = (days[k] || 0) >= STREAK_MIN_H ? n + 1 : 0;
+        if (n) run[k] = n;
       }
-      streak[w] = best >= STREAK_DAYS;
-    });
-    const mult = (k) => 1 + ((days[k] || 0) > BIG_DAY_H ? BONUS : 0) + (streak[mondayOf(k)] ? BONUS : 0);
+    }
+    const mult = (k) => 1 + ((days[k] || 0) > BIG_DAY_H ? BIG_BONUS : 0) + ((run[k] || 0) >= STREAK_DAYS ? STREAK_BONUS : 0);
     let earned = 0;
-    Object.keys(days).forEach((k) => { earned += r2(days[k] * S.rate * mult(k)); });
-    return { days, streak, mult, earned: r2(earned) };
+    keys.forEach((k) => { earned += r2(days[k] * S.rate * mult(k)); });
+    return { days, run, mult, earned: r2(earned) };
   }
   function totals() {
     const e = earnings();
@@ -401,21 +401,15 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     bd.classList.toggle("on", th > BIG_DAY_H);
     bd.querySelector("span").textContent = th > BIG_DAY_H ? "Today pays +10%" : th > 0.004 ? hrs(BIG_DAY_H - th + 0.01) + " more today for +10%" : "Study over 3 h today for +10%";
     const bs = $("bStreak");
-    const w = mondayOf(today);
-    const on = !!e.streak[w];
+    const todayRun = e.run[today] || 0;
+    const yRun = e.run[addDays(today, -1)] || 0;
+    const on = todayRun >= STREAK_DAYS;
     bs.classList.toggle("on", on);
     let msg;
-    if (on) msg = "This week pays +10%";
-    else {
-      // count the run of qualifying days ending today (or yesterday, if today isn't there yet)
-      let run = 0, k = (e.days[today] || 0) >= STREAK_MIN_H ? today : addDays(today, -1);
-      while (k >= w && (e.days[k] || 0) >= STREAK_MIN_H) { run++; k = addDays(k, -1); }
-      const todayDone = (e.days[today] || 0) >= STREAK_MIN_H;
-      const sunday = addDays(w, 6);
-      let left = 0; for (let d = todayDone ? addDays(today, 1) : today; d <= sunday; d = addDays(d, 1)) left++;
-      if (run + left < STREAK_DAYS) msg = (run ? run + (run === 1 ? " day" : " days") + " in a row · " : "") + "starts fresh Monday";
-      else msg = run + " of " + STREAK_DAYS + " days in a row";
-    }
+    if (on) msg = "Day " + todayRun + " · today pays +20%";
+    else if (todayRun) msg = todayRun + " of " + STREAK_DAYS + " days in a row";
+    else if (yRun) msg = yRun + "-day streak · study 30 min today to keep it";
+    else msg = "30 min a day, " + STREAK_DAYS + " days in a row for +20%";
     bs.querySelector("span").textContent = msg;
   }
 
