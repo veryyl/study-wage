@@ -160,6 +160,11 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .hist .amt.s { color: var(--earn); } .hist .amt.x { color: var(--spend); }
 .hist .del { padding: 4px 8px; font-size: 0.78rem; }
 .hist .del.armed { color: var(--spend); border-color: var(--spend); }
+.hist-card details { border-top: none; padding-top: 0; }
+.hist-card summary { justify-content: flex-start; align-items: baseline; gap: 10px; font-size: inherit; padding-block: 2px; }
+.hist-card summary #histCount { margin-left: auto; font-weight: 400; }
+.hist-card summary::after { font-size: 1.1rem; }
+.hist-card details[open] .hist { margin-top: 10px; }
 .empty { padding: 14px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); font-size: 0.9rem; }
 
 .qlist { display: flex; flex-direction: column; gap: 6px; }
@@ -226,9 +231,11 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   </section>
 
 
-  <section class="card" aria-labelledby="histH">
-    <div class="card-head"><h2 id="histH">History</h2><span class="small muted" id="histCount"></span></div>
-    <ul class="hist" id="hist"></ul>
+  <section class="card hist-card" aria-labelledby="histH">
+    <details id="histBox">
+      <summary><h2 id="histH">History</h2><span class="small muted" id="histCount"></span></summary>
+      <ul class="hist" id="hist"></ul>
+    </details>
   </section>
 
   <section class="card" aria-labelledby="setH">
@@ -400,6 +407,12 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     render(); save();
   });
 
+
+  // History starts collapsed; remember whether it was left open on this phone.
+  try { $("histBox").open = localStorage.getItem("sw-history-open") === "1"; } catch (e) {}
+  $("histBox").addEventListener("toggle", () => {
+    try { localStorage.setItem("sw-history-open", $("histBox").open ? "1" : "0"); } catch (e) {}
+  });
 
   $("hist").addEventListener("click", (e) => {
     const b = e.target.closest("[data-del]"); if (!b) return;
