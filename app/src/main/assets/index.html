@@ -117,6 +117,17 @@ button.link { background: none; border: none; padding: 4px 6px; color: var(--mut
 
 /* Clock */
 .hours { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.bonuses { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bchip { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; min-width: 0; font-size: 0.82rem; color: var(--muted); }
+.bchip b { color: var(--ink); font-size: 0.85rem; }
+.bchip.on { background: var(--earn-soft); border-color: var(--earn); color: var(--ink); }
+.bchip.on b { color: var(--earn); }
+.rules { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: 0.88rem; }
+.rules b { color: var(--earn); font-family: var(--font-num); }
+.rate-line { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.rate-big { font-size: 1.9rem; font-weight: 600; color: var(--earn); letter-spacing: -0.02em; }
+.onboard { border-color: var(--earn); }
+body.onboarding .wrap > section:not(#onboard) { display: none; }
 .hv { font-family: var(--font-num); font-weight: 600; font-size: 1.9rem; font-variant-numeric: tabular-nums; letter-spacing: -0.02em; line-height: 1.1; }
 
 details { border-top: 1px solid var(--line); padding-top: 10px; }
@@ -184,6 +195,20 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <span class="status" id="status">Loading…</span>
   </div>
 
+  <section class="card onboard" id="onboard" aria-labelledby="obH" hidden>
+    <span class="label">One-time setup</span>
+    <h2 id="obH">What's an hour of study worth?</h2>
+    <p class="small">Pick your hourly rate. It's permanent: once you lock it in, it can't be changed, so choose a number you'd be happy to pay yourself for the whole semester.</p>
+    <label class="field" for="obRate"><span>Pay per hour of study</span><span class="prefix"><i>$</i><input id="obRate" type="number" inputmode="decimal" min="0.1" step="0.1" value="1.00"></span></label>
+    <ul class="rules">
+      <li><b>+10%</b> on any day you study more than 3 hours</li>
+      <li><b>+10%</b> for the whole week once you study 5 days in a row (30 min or more each day, Monday to Sunday)</li>
+      <li>Both together pay <b>+20%</b></li>
+    </ul>
+    <p class="small muted" id="obNote">Hours you've already synced will be paid at this rate too.</p>
+    <button class="primary" id="obBtn">Lock in rate</button>
+  </section>
+
   <section class="stub" aria-label="Your balance">
     <div class="stub-main">
       <span class="label">Ready to transfer</span>
@@ -209,6 +234,10 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <div class="hours">
       <div><div class="label">Today</div><div class="hv" id="hToday">0 h</div></div>
       <div><div class="label">This week</div><div class="hv" id="hWeek">0 h</div></div>
+    </div>
+    <div class="bonuses">
+      <div class="bchip" id="bDay"><b>Big day</b><span></span></div>
+      <div class="bchip" id="bStreak"><b>Streak</b><span></span></div>
     </div>
     <div id="togglOn" class="sync" hidden>
       <span class="state" id="tgState">Connected</span>
@@ -239,12 +268,13 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   </section>
 
   <section class="card" aria-labelledby="setH">
-    <h2 id="setH">Settings</h2>
-    <div class="row">
-      <label class="field" for="rate"><span>Pay per hour of study</span><span class="prefix"><i>$</i><input id="rate" type="number" inputmode="decimal" min="0.1" step="0.1"></span></label>
-      <button id="rateBtn">Save rate</button>
-    </div>
-    <p class="small muted">A new rate applies to hours you log from now on. Hours already logged keep what they paid.</p>
+    <div class="card-head"><h2 id="setH">Your rate</h2><span class="small muted">Locked in</span></div>
+    <div class="rate-line"><span class="num rate-big" id="rateShow">$1.00</span><span class="muted">per hour of study</span></div>
+    <ul class="rules">
+      <li><b>+10%</b> on any day you study more than 3 hours</li>
+      <li><b>+10%</b> for the whole week once you study 5 days in a row (30 min or more each day, Monday to Sunday)</li>
+      <li>Both together pay <b>+20%</b></li>
+    </ul>
   </section>
 </div>
 <div class="toast" id="toast" hidden role="status"></div>
@@ -285,6 +315,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     return {
       v: 1,
       rate: Number(d.rate) > 0 ? Number(d.rate) : b.rate,
+      rateSet: d.rateSet === true,
       running: typeof d.running === "string" ? d.running : null,
       sessions: Array.isArray(d.sessions) ? d.sessions.slice() : [],
       transfers: Array.isArray(d.transfers) ? d.transfers.slice() : [],
@@ -334,10 +365,58 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     $("hToday").textContent = hrsTotal(since(today));
     $("hWeek").textContent = hrsTotal(since(ws));
   }
+  // Pay = hours x your locked-in rate, with bonuses (the widget's State.java repeats these rules):
+  //   +10% for a day with more than 3 hours
+  //   +10% for a whole Monday-Sunday week that has 5 days in a row of 30+ minutes each
+  const BONUS = 0.10, BIG_DAY_H = 3, STREAK_DAYS = 5, STREAK_MIN_H = 0.5;
+  const mondayOf = (key) => { const d = fromYmd(key); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); };
+  const addDays = (key, n) => { const d = fromYmd(key); d.setDate(d.getDate() + n); return ymd(d); };
+  function earnings() {
+    const days = {};
+    S.sessions.forEach((x) => { const k = ymd(new Date(x.at)); days[k] = (days[k] || 0) + (Number(x.h) || 0); });
+    const streak = {};
+    Object.keys(days).forEach((k) => {
+      const w = mondayOf(k);
+      if (w in streak) return;
+      let run = 0, best = 0;
+      for (let i = 0; i < 7; i++) {
+        if ((days[addDays(w, i)] || 0) >= STREAK_MIN_H) { run++; best = Math.max(best, run); } else run = 0;
+      }
+      streak[w] = best >= STREAK_DAYS;
+    });
+    const mult = (k) => 1 + ((days[k] || 0) > BIG_DAY_H ? BONUS : 0) + (streak[mondayOf(k)] ? BONUS : 0);
+    let earned = 0;
+    Object.keys(days).forEach((k) => { earned += r2(days[k] * S.rate * mult(k)); });
+    return { days, streak, mult, earned: r2(earned) };
+  }
   function totals() {
-    const earned = r2(sum(S.sessions, "amt"));
+    const e = earnings();
     const moved = r2(sum(S.transfers, "amt"));
-    return { hours: sum(S.sessions, "h"), earned, moved, avail: r2(earned - moved) };
+    return { hours: sum(S.sessions, "h"), earned: e.earned, moved, avail: r2(e.earned - moved), e };
+  }
+  function renderBonuses(e) {
+    const today = ymd(new Date());
+    const th = e.days[today] || 0;
+    const bd = $("bDay");
+    bd.classList.toggle("on", th > BIG_DAY_H);
+    bd.querySelector("span").textContent = th > BIG_DAY_H ? "Today pays +10%" : th > 0.004 ? hrs(BIG_DAY_H - th + 0.01) + " more today for +10%" : "Study over 3 h today for +10%";
+    const bs = $("bStreak");
+    const w = mondayOf(today);
+    const on = !!e.streak[w];
+    bs.classList.toggle("on", on);
+    let msg;
+    if (on) msg = "This week pays +10%";
+    else {
+      // count the run of qualifying days ending today (or yesterday, if today isn't there yet)
+      let run = 0, k = (e.days[today] || 0) >= STREAK_MIN_H ? today : addDays(today, -1);
+      while (k >= w && (e.days[k] || 0) >= STREAK_MIN_H) { run++; k = addDays(k, -1); }
+      const todayDone = (e.days[today] || 0) >= STREAK_MIN_H;
+      const sunday = addDays(w, 6);
+      let left = 0; for (let d = todayDone ? addDays(today, 1) : today; d <= sunday; d = addDays(d, 1)) left++;
+      if (run + left < STREAK_DAYS) msg = (run ? run + (run === 1 ? " day" : " days") + " in a row · " : "") + "starts fresh Monday";
+      else msg = run + " of " + STREAK_DAYS + " days in a row";
+    }
+    bs.querySelector("span").textContent = msg;
   }
 
   // ---------- render ----------
@@ -359,9 +438,12 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     if (document.activeElement !== moveAmt) moveAmt.value = t.avail > 0.004 ? t.avail.toFixed(2) : "";
     $("moveBtn").disabled = t.avail <= 0.004 && !moveAmt.value;
 
-    if (document.activeElement !== $("rate")) $("rate").value = S.rate;
+    $("rateShow").textContent = money(S.rate);
+    document.body.classList.toggle("onboarding", !S.rateSet);
+    $("onboard").hidden = !!S.rateSet;
 
     renderHours();
+    renderBonuses(t.e);
     renderHistory();
     renderToggl();
   }
@@ -369,7 +451,8 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   let armed = null;
   function renderHistory() {
     const items = [];
-    S.sessions.forEach((x) => items.push({ k: "s", x, at: x.at, title: (x.note || (x.src === "timer" ? "Study session" : x.src === "toggl" ? "Toggl entry" : "Study hours")), sub: hrs(x.h) + " · " + (x.src === "toggl" ? "from Toggl" : x.src === "timer" ? "clocked" : "logged by hand"), amt: "+" + money(x.amt) }));
+    const e = earnings();
+    S.sessions.forEach((x) => items.push({ k: "s", x, at: x.at, title: (x.note || (x.src === "timer" ? "Study session" : x.src === "toggl" ? "Toggl entry" : "Study hours")), sub: hrs(x.h) + " · " + (x.src === "toggl" ? "from Toggl" : x.src === "timer" ? "clocked" : "logged by hand"), amt: "+" + money(r2((Number(x.h) || 0) * S.rate * e.mult(ymd(new Date(x.at))))) }));
     S.transfers.forEach((x) => items.push({ k: "t", x, at: x.at, title: "Transferred", sub: "to your account", amt: money(x.amt) }));
     items.sort((a, b) => (a.at < b.at ? 1 : -1));
     $("histCount").textContent = items.length ? items.length + (items.length === 1 ? " entry" : " entries") : "";
@@ -430,13 +513,16 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     if (armed && !e.target.closest("[data-del]")) { armed = null; renderHistory(); }
   });
 
-  $("rateBtn").addEventListener("click", () => {
-    const r = parseFloat($("rate").value);
+  let obArmed = false;
+  $("obRate").addEventListener("input", () => { obArmed = false; $("obBtn").textContent = "Lock in rate"; });
+  $("obBtn").addEventListener("click", () => {
+    const r = r2(parseFloat($("obRate").value));
     if (!(r > 0) || r > 1000) { toast("Pick a rate above $0."); return; }
-    S.rate = r2(r);
-    $("rate").blur();
-    toast("New rate: " + money(S.rate) + " per hour.");
+    if (!obArmed) { obArmed = true; $("obBtn").textContent = "Lock in " + money(r) + " per hour for good?"; return; }
+    S.rate = r; S.rateSet = true;
+    toast("Rate locked in: " + money(r) + " per hour.");
     render(); save();
+    window.scrollTo(0, 0);
   });
 
 
@@ -517,7 +603,8 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
         }
       }
       const have = new Set(S.sessions.map((s) => s.key).filter(Boolean));
-      let added = 0, h = 0, amt = 0;
+      let added = 0, h = 0;
+      const before = earnings().earned;
       for (const e of entries) {
         if (!e || typeof e.duration !== "number" || e.duration <= 0 || !e.stop || e.server_deleted_at) continue;
         const key = "toggl:" + e.id;
@@ -530,12 +617,12 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
         if (filter && !(proj + " " + tags + " " + desc).toLowerCase().includes(filter)) continue;
         const hours = e.duration / 3600;
         if (addSession(hours, startAt.toISOString(), "toggl", (desc || proj || "Toggl entry").slice(0, 80), key)) {
-          have.add(key); added++; h += hours; amt += r2(hours * S.rate);
+          have.add(key); added++; h += hours;
         }
       }
       S.toggl.last = new Date().toISOString();
       S.toggl.pausedUntil = "";
-      if (added) toast("Synced " + hrs(h) + " from Toggl · +" + money(r2(amt)));
+      if (added) toast("Synced " + hrs(h) + " from Toggl · +" + money(r2(earnings().earned - before)));
       else if (manual) toast("No new finished Toggl entries.");
       save();
     } finally {

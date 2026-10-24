@@ -6,10 +6,16 @@ import android.content.SharedPreferences;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalAdjusters;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 /** Reads and writes the same state JSON the page (assets/index.html) keeps, and derives the totals. */
 final class State {
@@ -59,12 +65,62 @@ final class State {
         return total;
     }
 
+    // Pay rules, kept identical to earnings() in assets/index.html.
+    static final double BONUS = 0.10, BIG_DAY_H = 3, STREAK_MIN_H = 0.5;
+    static final int STREAK_DAYS = 5;
+
+    /** Earned money: per local day, hours x rate x (1 + big-day bonus + streak-week bonus). */
+    static double earned(JSONObject s) {
+        JSONArray sessions = s.optJSONArray("sessions");
+        if (sessions == null) return 0;
+        double rate = s.optDouble("rate", 1);
+        if (!(rate > 0)) rate = 1;
+        ZoneId zone = ZoneId.systemDefault();
+        Map<LocalDate, Double> days = new HashMap<>();
+        for (int i = 0; i < sessions.length(); i++) {
+            JSONObject o = sessions.optJSONObject(i);
+            if (o == null) continue;
+            Instant at;
+            try {
+                at = Instant.parse(o.optString("at", ""));
+            } catch (Exception e) {
+                continue;
+            }
+            LocalDate d = at.atZone(zone).toLocalDate();
+            Double prev = days.get(d);
+            days.put(d, (prev == null ? 0 : prev) + o.optDouble("h", 0));
+        }
+        Map<LocalDate, Boolean> streak = new HashMap<>();
+        for (LocalDate d : days.keySet()) {
+            LocalDate monday = d.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            if (streak.containsKey(monday)) continue;
+            int run = 0, best = 0;
+            for (int k = 0; k < 7; k++) {
+                Double h = days.get(monday.plusDays(k));
+                if (h != null && h >= STREAK_MIN_H) {
+                    run++;
+                    best = Math.max(best, run);
+                } else {
+                    run = 0;
+                }
+            }
+            streak.put(monday, best >= STREAK_DAYS);
+        }
+        double total = 0;
+        for (Map.Entry<LocalDate, Double> e : days.entrySet()) {
+            double h = e.getValue();
+            LocalDate monday = e.getKey().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+            double mult = 1 + (h > BIG_DAY_H ? BONUS : 0) + (Boolean.TRUE.equals(streak.get(monday)) ? BONUS : 0);
+            total += r2(h * rate * mult);
+        }
+        return r2(total);
+    }
+
     /** {hours, earned, moved, available} */
     static double[] totals(JSONObject s) {
         if (s == null) return new double[]{0, 0, 0, 0};
-        JSONArray sessions = s.optJSONArray("sessions");
-        double hours = sum(sessions, "h");
-        double earned = r2(sum(sessions, "amt"));
+        double hours = sum(s.optJSONArray("sessions"), "h");
+        double earned = earned(s);
         double moved = r2(sum(s.optJSONArray("transfers"), "amt"));
         return new double[]{hours, earned, moved, Math.max(0, r2(earned - moved))};
     }
