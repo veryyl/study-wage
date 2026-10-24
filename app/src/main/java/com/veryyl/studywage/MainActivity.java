@@ -39,7 +39,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        prefs = getSharedPreferences("study_wage", Context.MODE_PRIVATE);
+        prefs = State.prefs(this);
 
         web = new WebView(this);
         WebSettings s = web.getSettings();
@@ -110,7 +110,8 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public void save(String state) {
-            prefs.edit().putString("state", state).apply();
+            prefs.edit().putString("state", state).commit();
+            StudyWidget.renderAll(MainActivity.this, null);
         }
 
         /** GET a Toggl Track API path (must start with /api/v9/) and call window.__native(id, status, body). */

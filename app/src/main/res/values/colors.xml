@@ -2,4 +2,7 @@
 <resources>
     <color name="paper">#F3ECFF</color>
     <color name="icon_bg">#7C3AED</color>
+    <color name="widget_bg">#7C3AED</color>
+    <color name="widget_label">#E2D2FF</color>
+    <color name="widget_value">#FFFFFF</color>
 </resources>

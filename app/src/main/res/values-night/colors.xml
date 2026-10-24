@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="paper">#140A24</color>
+    <color name="widget_bg">#2E1C4D</color>
+    <color name="widget_label">#C3AAF5</color>
+    <color name="widget_value">#F1E9FF</color>
 </resources>

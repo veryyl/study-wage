@@ -553,6 +553,8 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   $("tgFrom").addEventListener("change", () => { S.toggl.from = $("tgFrom").value; save(); });
 
   window.onNativeResume = () => {
+    // The widget may have synced Toggl while the app was closed; pick that up first.
+    if (!syncing) { const fresh = loadSaved(); if (fresh) S = normalize(fresh); }
     render();
     const last = S.toggl.last ? new Date(S.toggl.last).getTime() : 0;
     const paused = S.toggl.pausedUntil && Date.now() < new Date(S.toggl.pausedUntil).getTime();
