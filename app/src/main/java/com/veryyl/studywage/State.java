@@ -63,8 +63,8 @@ final class State {
     }
 
     // Pay rules, kept identical to earnings() in assets/index.html:
-    //   +10% for a day with more than 3 hours
-    //   +20% for every day from the 10th day in a row of 30+ minutes, while the streak lasts
+    //   +10% on the part of a day beyond 3 hours
+    //   +20% on the whole day, for every day from the 10th day in a row of 30+ minutes, while the streak lasts
     static final double BIG_BONUS = 0.10, BIG_DAY_H = 3, STREAK_BONUS = 0.20, STREAK_MIN_H = 0.5;
     static final int STREAK_DAYS = 10;
 
@@ -96,8 +96,8 @@ final class State {
             double h = hv == null ? 0 : hv;
             run = h >= STREAK_MIN_H ? run + 1 : 0;
             if (h <= 0) continue;
-            double mult = 1 + (h > BIG_DAY_H ? BIG_BONUS : 0) + (run >= STREAK_DAYS ? STREAK_BONUS : 0);
-            total += r2(h * rate * mult);
+            double streak = run >= STREAK_DAYS ? STREAK_BONUS : 0;
+            total += r2(rate * (h * (1 + streak) + Math.max(0, h - BIG_DAY_H) * BIG_BONUS));
         }
         return r2(total);
     }

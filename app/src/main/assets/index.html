@@ -201,9 +201,9 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <p class="small">Pick your hourly rate. It's permanent: once you lock it in, it can't be changed, so choose a number you'd be happy to pay yourself for the whole semester.</p>
     <label class="field" for="obRate"><span>Pay per hour of study</span><span class="prefix"><i>$</i><input id="obRate" type="number" inputmode="decimal" min="0.1" step="0.1" value="1.00"></span></label>
     <ul class="rules">
-      <li><b>+10%</b> on any day you study more than 3 hours</li>
+      <li><b>+10%</b> on time past 3 hours in a day (the first 3 hours pay your normal rate)</li>
       <li><b>+20%</b> on every day from the 10th day in a row (30 min or more each day) until the streak breaks</li>
-      <li>Both together pay <b>+30%</b></li>
+      <li>On a streak day, time past 3 hours pays <b>+30%</b></li>
     </ul>
     <p class="small muted" id="obNote">Hours you've already synced will be paid at this rate too.</p>
     <button class="primary" id="obBtn">Lock in rate</button>
@@ -271,9 +271,9 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     <div class="card-head"><h2 id="setH">Your rate</h2><span class="small muted">Locked in</span></div>
     <div class="rate-line"><span class="num rate-big" id="rateShow">$1.00</span><span class="muted">per hour of study</span></div>
     <ul class="rules">
-      <li><b>+10%</b> on any day you study more than 3 hours</li>
+      <li><b>+10%</b> on time past 3 hours in a day (the first 3 hours pay your normal rate)</li>
       <li><b>+20%</b> on every day from the 10th day in a row (30 min or more each day) until the streak breaks</li>
-      <li>Both together pay <b>+30%</b></li>
+      <li>On a streak day, time past 3 hours pays <b>+30%</b></li>
     </ul>
   </section>
 </div>
@@ -366,8 +366,8 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     $("hWeek").textContent = hrsTotal(since(ws));
   }
   // Pay = hours x your locked-in rate, with bonuses (the widget's State.java repeats these rules):
-  //   +10% for a day with more than 3 hours
-  //   +20% for every day from the 10th day in a row of 30+ minutes, while the streak lasts
+  //   +10% on the part of a day beyond 3 hours
+  //   +20% on the whole day, for every day from the 10th day in a row of 30+ minutes, while the streak lasts
   const BIG_BONUS = 0.10, BIG_DAY_H = 3, STREAK_BONUS = 0.20, STREAK_DAYS = 10, STREAK_MIN_H = 0.5;
   const mondayOf = (key) => { const d = fromYmd(key); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return ymd(d); };
   const addDays = (key, n) => { const d = fromYmd(key); d.setDate(d.getDate() + n); return ymd(d); };
@@ -384,10 +384,17 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
         if (n) run[k] = n;
       }
     }
-    const mult = (k) => 1 + ((days[k] || 0) > BIG_DAY_H ? BIG_BONUS : 0) + ((run[k] || 0) >= STREAK_DAYS ? STREAK_BONUS : 0);
+    const pay = {};
     let earned = 0;
-    keys.forEach((k) => { earned += r2(days[k] * S.rate * mult(k)); });
-    return { days, run, mult, earned: r2(earned) };
+    keys.forEach((k) => {
+      const h = days[k];
+      const streak = (run[k] || 0) >= STREAK_DAYS ? STREAK_BONUS : 0;
+      pay[k] = r2(S.rate * (h * (1 + streak) + Math.max(0, h - BIG_DAY_H) * BIG_BONUS));
+      earned += pay[k];
+    });
+    // a session's share of its day's pay (used by History)
+    const share = (k, h) => (days[k] > 0 ? r2(pay[k] * h / days[k]) : 0);
+    return { days, run, pay, share, earned: r2(earned) };
   }
   function totals() {
     const e = earnings();
@@ -399,7 +406,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
     const th = e.days[today] || 0;
     const bd = $("bDay");
     bd.classList.toggle("on", th > BIG_DAY_H);
-    bd.querySelector("span").textContent = th > BIG_DAY_H ? "Today pays +10%" : th > 0.004 ? hrs(BIG_DAY_H - th + 0.01) + " more today for +10%" : "Study over 3 h today for +10%";
+    bd.querySelector("span").textContent = th > BIG_DAY_H ? hrs(th - BIG_DAY_H) + " past 3 h paying +10%" : th > 0.004 ? hrs(BIG_DAY_H - th + 0.01) + " to go, then extra time pays +10%" : "Time past 3 h a day pays +10%";
     const bs = $("bStreak");
     const todayRun = e.run[today] || 0;
     const yRun = e.run[addDays(today, -1)] || 0;
@@ -446,7 +453,7 @@ label.file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
   function renderHistory() {
     const items = [];
     const e = earnings();
-    S.sessions.forEach((x) => items.push({ k: "s", x, at: x.at, title: (x.note || (x.src === "timer" ? "Study session" : x.src === "toggl" ? "Toggl entry" : "Study hours")), sub: hrs(x.h) + " · " + (x.src === "toggl" ? "from Toggl" : x.src === "timer" ? "clocked" : "logged by hand"), amt: "+" + money(r2((Number(x.h) || 0) * S.rate * e.mult(ymd(new Date(x.at))))) }));
+    S.sessions.forEach((x) => items.push({ k: "s", x, at: x.at, title: (x.note || (x.src === "timer" ? "Study session" : x.src === "toggl" ? "Toggl entry" : "Study hours")), sub: hrs(x.h) + " · " + (x.src === "toggl" ? "from Toggl" : x.src === "timer" ? "clocked" : "logged by hand"), amt: "+" + money(e.share(ymd(new Date(x.at)), Number(x.h) || 0)) }));
     S.transfers.forEach((x) => items.push({ k: "t", x, at: x.at, title: "Transferred", sub: "to your account", amt: money(x.amt) }));
     items.sort((a, b) => (a.at < b.at ? 1 : -1));
     $("histCount").textContent = items.length ? items.length + (items.length === 1 ? " entry" : " entries") : "";
