@@ -9,7 +9,7 @@ Study time becomes pocket money. Every hour you study pays you (default $1/h). T
 - **Locked-in rate**: you pick your hourly pay once, on first launch
 - **Bonuses**: +10% on time past 3 hours in a day; +20% on every day from the 10th day in a row (30+ min a day) while the streak lasts; they stack
 - **History** of study sessions and transfers
-- **Home-screen widget**: a 4×1 bar with hours studied, earned and to transfer; tap ↻ to sync Toggl, refreshes itself about every 30 minutes
+- **Home-screen widget**: a 4×1 bar with hours today, hours this week, today's pay and your streak; tap ↻ to sync Toggl, refreshes itself about every 30 minutes
 - Everything is saved on the phone
 
 ## Install

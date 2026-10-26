@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="widget_description">Hours studied, money earned and what\'s left to transfer</string>
+    <string name="widget_description">Hours studied today and this week, today\'s pay and your streak</string>
 </resources>

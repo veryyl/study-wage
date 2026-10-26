@@ -6,9 +6,9 @@
     android:background="@drawable/widget_bg"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingStart="16dp"
+    android:paddingStart="14dp"
     android:paddingTop="8dp"
-    android:paddingEnd="6dp"
+    android:paddingEnd="4dp"
     android:paddingBottom="8dp">
 
     <LinearLayout
@@ -18,23 +18,26 @@
         android:orientation="vertical">
 
         <TextView
+            android:id="@+id/w_today_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:letterSpacing="0.08"
-            android:text="STUDIED"
+            android:ellipsize="end"
+            android:letterSpacing="0.06"
+            android:maxLines="1"
+            android:text="TODAY"
             android:textColor="@color/widget_label"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/w_hours"
+            android:id="@+id/w_today"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:maxLines="1"
             android:text="0 h"
             android:textColor="@color/widget_value"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -47,59 +50,89 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:letterSpacing="0.08"
-            android:text="EARNED"
+            android:ellipsize="end"
+            android:letterSpacing="0.06"
+            android:maxLines="1"
+            android:text="THIS WEEK"
             android:textColor="@color/widget_label"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/w_earned"
+            android:id="@+id/w_week"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:maxLines="1"
-            android:text="$0.00"
+            android:text="0 h"
             android:textColor="@color/widget_value"
-            android:textSize="18sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_weight="1.2"
+        android:layout_weight="1.1"
         android:orientation="vertical">
 
         <TextView
-            android:id="@+id/w_avail_label"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:letterSpacing="0.08"
-            android:maxLines="1"
             android:ellipsize="end"
-            android:text="TO TRANSFER"
+            android:letterSpacing="0.06"
+            android:maxLines="1"
+            android:text="TODAY\'S PAY"
             android:textColor="@color/widget_label"
-            android:textSize="10sp"
+            android:textSize="9sp"
             android:textStyle="bold" />
 
         <TextView
-            android:id="@+id/w_avail"
+            android:id="@+id/w_pay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="monospace"
             android:maxLines="1"
             android:text="$0.00"
             android:textColor="@color/widget_value"
-            android:textSize="18sp"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:letterSpacing="0.06"
+            android:maxLines="1"
+            android:text="STREAK"
+            android:textColor="@color/widget_label"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/w_streak"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:maxLines="1"
+            android:text="0 days"
+            android:textColor="@color/widget_value"
+            android:textSize="16sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <ImageView
         android:id="@+id/w_refresh"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
         android:contentDescription="Sync with Toggl"
-        android:padding="9dp"
+        android:padding="8dp"
         android:src="@drawable/ic_refresh" />
 </LinearLayout>

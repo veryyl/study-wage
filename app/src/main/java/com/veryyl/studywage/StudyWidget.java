@@ -10,7 +10,7 @@ import android.widget.RemoteViews;
 
 import org.json.JSONObject;
 
-/** A one-row home-screen bar: hours studied, money earned, and what's left to transfer. */
+/** A one-row home-screen bar: hours today and this week, today's pay, and the current streak. */
 public class StudyWidget extends AppWidgetProvider {
     static final String ACTION_REFRESH = "com.veryyl.studywage.WIDGET_REFRESH";
 
@@ -24,7 +24,7 @@ public class StudyWidget extends AppWidgetProvider {
     public void onReceive(Context ctx, Intent intent) {
         super.onReceive(ctx, intent);
         if (ACTION_REFRESH.equals(intent.getAction())) {
-            renderAll(ctx, "Syncing…");
+            renderAll(ctx, "SYNCING…");
             syncInBackground(ctx, true);
         }
     }
@@ -36,8 +36,8 @@ public class StudyWidget extends AppWidgetProvider {
             try {
                 int r = TogglSync.run(ctx.getApplicationContext(), manual);
                 if (manual) {
-                    if (r == TogglSync.QUOTA) status = "Toggl limit reached";
-                    else if (r == TogglSync.FAILED) status = "Couldn't reach Toggl";
+                    if (r == TogglSync.QUOTA) status = "LIMIT HIT";
+                    else if (r == TogglSync.FAILED) status = "OFFLINE";
                 }
                 renderAll(ctx, status);
             } finally {
@@ -53,14 +53,14 @@ public class StudyWidget extends AppWidgetProvider {
         int[] ids = mgr.getAppWidgetIds(new ComponentName(app, StudyWidget.class));
         if (ids == null || ids.length == 0) return;
 
-        JSONObject s = State.load(app);
-        double[] t = State.totals(s);
+        State.Summary sum = State.summary(State.load(app));
 
         RemoteViews v = new RemoteViews(app.getPackageName(), R.layout.widget_study);
-        v.setTextViewText(R.id.w_hours, State.hours(t[0]));
-        v.setTextViewText(R.id.w_earned, State.money(t[1]));
-        v.setTextViewText(R.id.w_avail, State.money(t[3]));
-        v.setTextViewText(R.id.w_avail_label, status != null ? status : "TO TRANSFER");
+        v.setTextViewText(R.id.w_today, State.hours(sum.hoursToday));
+        v.setTextViewText(R.id.w_week, State.hours(sum.hoursWeek));
+        v.setTextViewText(R.id.w_pay, State.money(sum.earnedToday));
+        v.setTextViewText(R.id.w_streak, sum.streak == 1 ? "1 day" : sum.streak + " days");
+        v.setTextViewText(R.id.w_today_label, status != null ? status : "TODAY");
 
         Intent open = new Intent(app, MainActivity.class);
         open.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
